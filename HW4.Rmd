@@ -33,16 +33,16 @@ The training dataset for the binary logistic regression model was labelled train
 
 # 3. Build Models
 
-First, we built a model using all predictors as numerics. This yielded an AIC of 218.05 and accuracy of 0.9163.
+First, we built two models using most predictors as numerics. Then we used the step AIC function to find the best variables for each model.
 
-But, based on the data dictionary in the given HW3 pdf it we thought it would be more fitting to treat the variables "chas" and "rad" as factors. So, we built a second model using "chas" and "rad" as factors and got an AIC of 157.2 and an accuracy of 0.97.
+One model was a Binary Logistic Regression model for the TARGET_FLAG response titled step_BLR.
+The second model was a Multiple Linear Regression for the TARGET_AMT response titled MLR_all_vars.
 
 # 4. Select Models
 
-To finally select a model, we used Stepwise AIC (both backward and forward) to do model selection and ended with a model with an AIC of 120.56 and an accuracy of 0.9721. The AUC of the third model was .986.
+To finally select a model, we used Stepwise AIC (both backward and forward) to do model selection and ended with a Binary Logistict 7661.4
 
 # Appendix
-
 
 ## Import Libraries and Data
 
@@ -76,11 +76,13 @@ See a summary of each column in the train_df set
 summary(train_df)
 ```
 
+Look at the data type of each variable
 ```{r}
 # data type of predictors
 str(train_df)
 ```
 
+Look at the relationship between TARGET_FLAG and some of the numerical variables.
 ```{r}
 par(mfrow=c(1,2))
 # plot response variable "target" against predictor variable "age" and "car_age"
@@ -94,6 +96,7 @@ boxplot(CAR_AGE ~ TARGET_FLAG, train_df,
         ylab="Car Age")
 ```
 
+Look at the distribution of some numerical variables.
 ```{r}
 h <- hist(train_df$AGE)
 text(h$mids,h$counts,labels=h$counts)
@@ -104,7 +107,6 @@ h <- hist(train_df$MVR_PTS)
 text(h$mids,h$counts,labels=h$counts)
 ```
 
-
 Check for NA's
 ```{r}
 has_NA = names(which(sapply(train_df, anyNA)))
@@ -112,8 +114,15 @@ has_NA
 ```
 
 Remove rows with NA's
+train_df will be used for binary logistic regression model
 ```{r}
 train_df <- train_df[complete.cases(train_df), ]
+```
+
+Create train_amt_df dataframe for multiple linear regression model
+```{r}
+train_amt_df <- subset(train_df, TARGET_AMT > 0)
+summary(train_amt_df$TARGET_FLAG)
 ```
 
 ## Modeling
@@ -121,68 +130,37 @@ train_df <- train_df[complete.cases(train_df), ]
 ### 1) Binary Logistic Regression
 
 ```{r}
-# preliminary exploration glm models
-glm(formula = TARGET_FLAG ~ AGE, family = binomial(), data = train_df)
+# preliminary exploration with one predictor
+model1 <- glm(formula = TARGET_FLAG ~ AGE, family = binomial(), data = train_df)
+summary(model1)
 ```
 
-### All predictor models
-
+Binary Logistic Regression Model with more variables
 ```{r}
-all_preds = glm(target ~ ., family = binomial, data = train_df)
-summary(all_preds)
-train_df$preds = ifelse(all_preds$fitted.values > 0.5, 1, 0)
-
-# look at confusion matrix
-cm = confusionMatrix(as_factor(train_df$preds), as_factor(train_df$target), positive = "1")
-cm
+BLR_all_vars = glm(TARGET_FLAG ~ AGE +
+                  CAR_AGE +
+                  MVR_PTS +
+                  YOJ +
+                  CLM_FREQ +
+                  TIF, family = binomial(), data = train_df)
+summary(BLR_all_vars)
 ```
 
-
+Step through AIC scores to find best model
 ```{r}
-step_all_preds = stepAIC(all_preds)
-summary(step_all_preds)
-train_df$preds = ifelse(step_all_preds$fitted.values > 0.5, 1, 0)
-
-# look at confusion matrix
-cm = confusionMatrix(as_factor(train_df$preds), as_factor(train_df$target), positive = "1")
-cm
+step_BLR = stepAIC(BLR_all_vars)
+summary(step_BLR)
 ```
 
-### Try treating chas and rad as factors
+### 2) Multiple Linear Regression
 
+Multiple Linear Regression models with many variables
 ```{r}
-# Based on data dictionary in hw assignment pdf and looking at the df,
-# chas and rad should probably be factors
-train_df2 = cbind(train_df)
-train_df2$chas = as.factor(train_df2$chas)
-train_df2$rad = as.factor(train_df2$rad)
-all_preds_fac = glm(target ~ ., family = binomial, data = train_df2)
-summary(all_preds_fac)
-train_df2$preds = ifelse(all_preds_fac$fitted.values > 0.5, 1, 0)
-
-# look at confusion matrix
-#cm = confusionMatrix(as_factor(train_df2$preds), as_factor(train_df2$target), positive = "1")
-#cm
-```
-
-```{r}
-step_all_preds_fac = stepAIC(all_preds_fac)
-summary(step_all_preds_fac)
-train_df2$preds = ifelse(step_all_preds_fac$fitted.values > 0.5, 1, 0)
-train_df2$pred_proba = step_all_preds_fac$fitted.values
-
-# look at confusion matrix
-cm = confusionMatrix(as_factor(train_df2$preds), as_factor(train_df2$target), positive = "1")
-cm
-```
-
-```{r}
-hist(step_all_preds_fac$fitted.values,
-     main= "Histogram of Predicted Probabilities",
-     xlab="Predicted Probabilities")
-```
-
-```{r}
-proc = roc(train_df2$target, train_df2$pred_proba)
-plot(proc, asp=NA, legacy.axes=TRUE, print.auc=TRUE, xlab="Specificity")
+MLR_all_vars = lm(TARGET_AMT ~ AGE +
+                  CAR_AGE +
+                  MVR_PTS +
+                  YOJ +
+                  CLM_FREQ +
+                  TIF, data = train_amt_df)
+summary(MLR_all_vars)
 ```
