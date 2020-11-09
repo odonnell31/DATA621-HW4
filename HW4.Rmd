@@ -9,25 +9,27 @@ output:
 
 # 1. Data Exploration
 
-The crime data training dataset has 14 columns and 466 rows. The columns are predictor variables about the dataset such as age and tax.
+The auto insurance training dataset has 26 variables and 8161 observations. Of the variables, 24 of them are predictors for two responses: TARGET_FLAG and TARGET_AMT is numerical. 
 
-To explore the training data, we used:
-- summary function to see means, medians, and quartiles and missing values. Fortunately, we had no missing values.
-- correlation plot to find related preditors. For example, nox and dis had a large negative correlation.
-- str function to see the data type of each predictor variable
+To explore the training data:
+- used the summary function to see means, medians, and quartiles of predictors
+- used str function to see the data type of each predictor
+- explored TARGET_FLAG in relation to some other variables such as AGE and CAR_AGE
+- looked at distribution of some numerical variables such as AGE and MVR_PTS
 
-We also used the summary and str functions to explore the test dataset. We found that the response variable "target" is binary and a value of 1 indicates crime rate is above median cirme rate and 0 indicates crime rate is not above median crime rate.
+From the summary function, the TARGET_FLAG is binary and 26% of the 8161 records were accidents.
 
 # 2. Data Preparation
 
-To prepare the data, we checked for any NA's or missing values. There were none.
+This data was prepared to build both a binary logistic model and a multiple linear regression model. The binary logisitc model was used to predict the TARGET_FLAG response variable and the multiple linear regression model was used to predict the TARGET_AMT variable.
 
-Then, we plotted many individual predictors against the response to look at effect. For example:
+Thus, there was a different training dataset prepared for each model.
 
-1. The plot of "target" against "age" shows target equalling one (above median crime rate) increases as the proportion of owner-occupied units built prior to 1940 increaases; the boxplot further shows that a larger mean of proportions of owner-occupied units built prior to 1940 is assoicated with higher crime rate.
-2. Plots of crime rate against pupil-teacher ratio indicate higher crime rate "1" is associated with higher pupil-teacher ratio.
+In both training datasets, all 948 records with at least one missing value were removed.
 
-Otherwise, the data was well-prepared to setup the Binary Logisitic Regression model.
+Then, in the multiple linear regression training dataset all records with TARGET_AMT = 0 were removed.
+
+The training dataset for the binary logistic regression model was labelled train_df. The training dataset for the multiple linear regression model was titled train_amt_df.
 
 # 3. Build Models
 
@@ -44,7 +46,7 @@ To finally select a model, we used Stepwise AIC (both backward and forward) to d
 
 ## Import Libraries and Data
 
-```{r}
+```{r echo=FALSE}
 # load required packages
 library(ggplot2)
 library(dplyr)
@@ -59,11 +61,11 @@ library(haven)
 
 ```{r import}
 # Loading the data
-git_dir <- 'https://raw.githubusercontent.com/odonnell31/DATA621-HW3/main/data'
+git_dir <- 'https://raw.githubusercontent.com/odonnell31/DATA621-HW4/main/data'
 #class_data = read.csv(paste(git_dir, "/classification-output-data.csv", sep=""))
-train_df = read.csv(paste(git_dir, "/crime-training-data_modified.csv", sep=""))
-test_df = read.csv(paste(git_dir, "/crime-evaluation-data_modified.csv", sep = ""))
-head(train_df)
+train_df = read.csv(paste(git_dir, "/insurance_training_data.csv", sep=""))
+test_df = read.csv(paste(git_dir, "/insurance-evaluation-data.csv", sep = ""))
+head(train_df, 2)
 ```
 
 ## Data Exploration & Preparation
@@ -75,34 +77,44 @@ summary(train_df)
 ```
 
 ```{r}
-# look at correlations 
-cor_train = cor(train_df,  use = "na.or.complete")
-corrplot(cor_train)
-```
-
-```{r}
 # data type of predictors
 str(train_df)
-str(test_df)
 ```
 
 ```{r}
-par(mfrow=c(2,2))
-# plot response variable "target" against predictor variable "age" 
-plot(train_df$age,train_df$target)
-boxplot(age ~ target, train_df )
-# plot response variable "target" against predictor variable "ptratio"
-plot(train_df$ptratio,train_df$target)
-boxplot(ptratio ~ target, train_df)
+par(mfrow=c(1,2))
+# plot response variable "target" against predictor variable "age" and "car_age"
+boxplot(AGE ~ TARGET_FLAG, train_df, 
+        main="Target vs Age",
+        xlab="Target",
+        ylab="Age") 
+boxplot(CAR_AGE ~ TARGET_FLAG, train_df, 
+        main="Target vs Car Age",
+        xlab="Target",
+        ylab="Car Age")
 ```
+
+```{r}
+h <- hist(train_df$AGE)
+text(h$mids,h$counts,labels=h$counts)
+```
+
+```{r}
+h <- hist(train_df$MVR_PTS)
+text(h$mids,h$counts,labels=h$counts)
+```
+
 
 Check for NA's
 ```{r}
 has_NA = names(which(sapply(train_df, anyNA)))
 has_NA
 ```
-There are no NAs
 
+Remove rows with NA's
+```{r}
+train_df <- train_df[complete.cases(train_df), ]
+```
 
 ## Modeling
 
@@ -110,8 +122,7 @@ There are no NAs
 
 ```{r}
 # preliminary exploration glm models
-glm(formula = target ~ age, family = binomial(), data = train_df)
-glm(formula = target ~ ptratio , family = binomial(), data = train_df)
+glm(formula = TARGET_FLAG ~ AGE, family = binomial(), data = train_df)
 ```
 
 ### All predictor models
